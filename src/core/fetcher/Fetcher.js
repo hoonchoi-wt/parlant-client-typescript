@@ -36,10 +36,10 @@ function fetcherImpl(args) {
             body: args.body,
             type: args.requestType === "json" ? "json" : "other",
         });
-        const fetchFn = yield (0, getFetchFn_1.getFetchFn)();
+        const axiosInstance = (0, getFetchFn_1.getFetchFn)();
         try {
             const response = yield (0, requestWithRetries_1.requestWithRetries)(() => __awaiter(this, void 0, void 0, function* () {
-                return (0, makeRequest_1.makeRequest)(fetchFn, url, args.method, headers, requestBody, args.timeoutMs, args.abortSignal, args.withCredentials, args.duplex);
+                return (0, makeRequest_1.makeRequest)(axiosInstance, url, args.method, headers, requestBody, args.timeoutMs, args.abortSignal, args.withCredentials, args.duplex, args.responseType);
             }), args.maxRetries);
             const responseBody = yield (0, getResponseBody_1.getResponseBody)(response, args.responseType);
             if (response.status >= 200 && response.status < 400) {
@@ -70,11 +70,34 @@ function fetcherImpl(args) {
                     },
                 };
             }
-            else if (error instanceof Error && error.name === "AbortError") {
+            else if (error.code === 'ECONNABORTED' || error.code === 'ERR_CANCELED') {
                 return {
                     ok: false,
                     error: {
                         reason: "timeout",
+                    },
+                };
+            }
+            else if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                const responseBody = yield (0, getResponseBody_1.getResponseBody)(error.response, args.responseType);
+                return {
+                    ok: false,
+                    error: {
+                        reason: "status-code",
+                        statusCode: error.response.status,
+                        body: responseBody,
+                    },
+                };
+            }
+            else if (error.request) {
+                // The request was made but no response was received
+                return {
+                    ok: false,
+                    error: {
+                        reason: "unknown",
+                        errorMessage: "No response received from server",
                     },
                 };
             }

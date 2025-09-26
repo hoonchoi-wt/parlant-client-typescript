@@ -13,42 +13,72 @@ exports.getResponseBody = getResponseBody;
 const chooseStreamWrapper_1 = require("./stream-wrappers/chooseStreamWrapper");
 function getResponseBody(response, responseType) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (response.body != null && responseType === "blob") {
-            return yield response.blob();
+        // Axios response has data property that contains the response body
+        const data = response.data;
+
+        if (responseType === "blob") {
+            // For blob response type, axios should be configured with responseType: 'blob'
+            // If it's not a Blob, convert it
+            if (data instanceof Blob) {
+                return data;
+            }
+            return new Blob([data]);
         }
-        else if (response.body != null && responseType === "arrayBuffer") {
-            return yield response.arrayBuffer();
+        else if (responseType === "arrayBuffer") {
+            // For arrayBuffer response type, axios should be configured with responseType: 'arraybuffer'
+            if (data instanceof ArrayBuffer) {
+                return data;
+            }
+            // Convert if needed
+            if (typeof data === 'string') {
+                const encoder = new TextEncoder();
+                return encoder.encode(data).buffer;
+            }
+            return data;
         }
-        else if (response.body != null && responseType === "sse") {
-            return response.body;
+        else if (responseType === "sse") {
+            // For SSE, return the data stream
+            return data;
         }
-        else if (response.body != null && responseType === "streaming") {
-            return (0, chooseStreamWrapper_1.chooseStreamWrapper)(response.body);
+        else if (responseType === "streaming") {
+            // For streaming responses
+            if (data && typeof data.pipe === 'function') {
+                return (0, chooseStreamWrapper_1.chooseStreamWrapper)(data);
+            }
+            return data;
         }
-        else if (response.body != null && responseType === "text") {
-            return yield response.text();
+        else if (responseType === "text") {
+            // Return text data
+            if (typeof data === 'string') {
+                return data;
+            }
+            return JSON.stringify(data);
         }
         else {
-            const text = yield response.text();
-            if (text.length > 0) {
-                try {
-                    let responseBody = JSON.parse(text);
-                    return responseBody;
+            // Default to JSON
+            if (typeof data === 'string') {
+                if (data.length > 0) {
+                    try {
+                        let responseBody = JSON.parse(data);
+                        return responseBody;
+                    }
+                    catch (err) {
+                        return {
+                            ok: false,
+                            error: {
+                                reason: "non-json",
+                                statusCode: response.status,
+                                rawBody: data,
+                            },
+                        };
+                    }
                 }
-                catch (err) {
-                    return {
-                        ok: false,
-                        error: {
-                            reason: "non-json",
-                            statusCode: response.status,
-                            rawBody: text,
-                        },
-                    };
+                else {
+                    return undefined;
                 }
             }
-            else {
-                return undefined;
-            }
+            // If data is already an object, return it directly
+            return data;
         }
     });
 }

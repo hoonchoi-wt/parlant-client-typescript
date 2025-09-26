@@ -1,4 +1,6 @@
+import { AxiosInstance } from 'axios';
 /**
- * Returns a fetch function based on the runtime
+ * Returns an axios instance
+ * Axios works isomorphically in both browser and Node.js environments
  */
-export declare function getFetchFn(): Promise<any>;
+export declare function getFetchFn(): AxiosInstance;

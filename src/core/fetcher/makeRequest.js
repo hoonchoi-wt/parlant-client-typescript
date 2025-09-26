@@ -10,33 +10,38 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.makeRequest = void 0;
-const signals_1 = require("./signals");
-const makeRequest = (fetchFn, url, method, headers, requestBody, timeoutMs, abortSignal, withCredentials, duplex) => __awaiter(void 0, void 0, void 0, function* () {
-    const signals = [];
-    // Add timeout signal
-    let timeoutAbortId = undefined;
-    if (timeoutMs != null) {
-        const { signal, abortId } = (0, signals_1.getTimeoutSignal)(timeoutMs);
-        timeoutAbortId = abortId;
-        signals.push(signal);
-    }
-    // Add arbitrary signal
-    if (abortSignal != null) {
-        signals.push(abortSignal);
-    }
-    let newSignals = (0, signals_1.anySignal)(signals);
-    const response = yield fetchFn(url, {
-        method: method,
+const makeRequest = (axiosInstance, url, method, headers, requestBody, timeoutMs, abortSignal, withCredentials, duplex, responseType) => __awaiter(void 0, void 0, void 0, function* () {
+    const config = {
+        url,
+        method,
         headers,
-        body: requestBody,
-        signal: newSignals,
-        credentials: withCredentials ? "include" : undefined,
-        // @ts-ignore
-        duplex,
-    });
-    if (timeoutAbortId != null) {
-        clearTimeout(timeoutAbortId);
+        data: requestBody,
+        withCredentials: withCredentials || false,
+    };
+
+    // Add timeout if specified
+    if (timeoutMs != null) {
+        config.timeout = timeoutMs;
     }
+
+    // Add abort signal if provided
+    if (abortSignal != null) {
+        config.signal = abortSignal;
+    }
+
+    // Handle response type based on what's requested
+    if (duplex) {
+        config.responseType = 'stream';
+    } else if (responseType === 'blob') {
+        config.responseType = 'blob';
+    } else if (responseType === 'arrayBuffer') {
+        config.responseType = 'arraybuffer';
+    } else if (responseType === 'text') {
+        config.responseType = 'text';
+    }
+    // Default to json which axios handles automatically
+
+    const response = yield axiosInstance.request(config);
     return response;
 });
 exports.makeRequest = makeRequest;
